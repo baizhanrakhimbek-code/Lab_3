@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 df=pd.read_csv("data/cars_fuel_efficiency.csv")
 df=df.dropna(subset=["power_hp"])
 target="fuel_efficiency_km_per_l"
@@ -68,4 +70,23 @@ cv_r2_scores = cross_val_score(eval_model, X, y, cv=kf, scoring='r2')
 print(f"\n5-fold Cross-Validation Test R² scores: {cv_r2_scores}")
 print(f"Average Test R² (Mean): {cv_r2_scores.mean():.4f}")
 print(f"Standard Deviation (Std): {cv_r2_scores.std():.4f}")
+print("\n--- Step 5: Multiple regression ---")
+numeric_features = correlation_matrix[target].drop(target).index.tolist()
+best_feat = [best_feature]
+second_feat = best_feat + ['mass_kg'] if 'mass_kg' in numeric_features else best_feat + [numeric_features[1]]
+all_numeric_feats = [col for col in numeric_features if col not in ['year']]
 
+feature_groups = {
+    f"1. Best only ({best_feature})": best_feat,
+    "2. + One additional feature": second_feat,
+    "3. All numeric features": all_numeric_feats
+}
+
+mult_results = []
+for label, feats in feature_groups.items():
+    X_mult = df[feats]
+
+    cv_scores = cross_val_score(eval_model, X_mult, y, cv=kf, scoring='r2')
+    mean_r2 = cv_scores.mean()
+    mult_results.append((label, mean_r2))
+    print(f"{label} -> Mean Test R² (5-fold): {mean_r2:.4f}")
