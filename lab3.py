@@ -70,23 +70,34 @@ cv_r2_scores = cross_val_score(eval_model, X, y, cv=kf, scoring='r2')
 print(f"\n5-fold Cross-Validation Test R² scores: {cv_r2_scores}")
 print(f"Average Test R² (Mean): {cv_r2_scores.mean():.4f}")
 print(f"Standard Deviation (Std): {cv_r2_scores.std():.4f}")
-print("\n--- Step 5: Multiple regression ---")
-numeric_features = correlation_matrix[target].drop(target).index.tolist()
-best_feat = [best_feature]
-second_feat = best_feat + ['mass_kg'] if 'mass_kg' in numeric_features else best_feat + [numeric_features[1]]
-all_numeric_feats = [col for col in numeric_features if col not in ['year']]
+print("\n--- Step 6: Polynomial regression (degrees 1 to 5) ---")
+degrees = [1, 2, 3, 4, 5]
+train_r2_list = []
+test_r2_list = []
+X_single = df[[best_feature]]
 
-feature_groups = {
-    f"1. Best only ({best_feature})": best_feat,
-    "2. + One additional feature": second_feat,
-    "3. All numeric features": all_numeric_feats
-}
+for deg in degrees:
+      poly_pipe = make_pipeline(
+            StandardScaler(),
+            PolynomialFeatures(degree=deg, include_bias=False),
+            LinearRegression()
+      )
+      poly_pipe.fit(X_single, y)
+      y_train_pred = poly_pipe.predict(X_single)
+      train_r2 = r2_score(y, y_train_pred)
+      train_r2_list.append(train_r2)
+      cv_poly_scores = cross_val_score(poly_pipe, X_single, y, cv=kf, scoring='r2')
+      test_r2_mean = cv_poly_scores.mean()
+      test_r2_list.append(test_r2_mean)
+      print(f"Degree (Degree {deg}) -> Train R²: {train_r2:.4f} | Test R² (CV): {test_r2_mean:.4f}")
 
-mult_results = []
-for label, feats in feature_groups.items():
-    X_mult = df[feats]
-
-    cv_scores = cross_val_score(eval_model, X_mult, y, cv=kf, scoring='r2')
-    mean_r2 = cv_scores.mean()
-    mult_results.append((label, mean_r2))
-    print(f"{label} -> Mean Test R² (5-fold): {mean_r2:.4f}")
+plt.figure(figsize=(9, 6))
+plt.plot(degrees, train_r2_list, marker='o', label='Train R²', color='blue', linewidth=2)
+plt.plot(degrees, test_r2_list, marker='s', label='Test R² (5-fold CV)', color='red', linewidth=2)
+plt.xlabel('Polynomial Degree')
+plt.ylabel('R² Score')
+plt.title('Polynomial Regression: Train vs Test R² across Degrees')
+plt.xticks(degrees)
+plt.legend()
+plt.grid(True)
+plt.show()
